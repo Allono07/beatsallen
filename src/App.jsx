@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Route, Routes, useLocation } from 'react-router-dom';
 import { getApp, getApps, initializeApp } from 'firebase/app';
+import { getAuth, signInAnonymously } from 'firebase/auth';
 import { doc, getDoc, getFirestore, runTransaction } from 'firebase/firestore';
 
 const firebaseConfig = {
@@ -20,15 +21,36 @@ const releases = [{
   keywords: 'music house journey kepler kepler186f kepler18f kepler 18f afterlife theory labs space planet travel astronaut release experiment 001',
 }];
 
+function getFirebaseApp() {
+  return getApps().length ? getApp() : initializeApp(firebaseConfig);
+}
+
 function getFirebaseDb() {
-  const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-  return getFirestore(app);
+  return getFirestore(getFirebaseApp());
+}
+
+let anonymousSignInPromise;
+
+async function getFirebaseUser() {
+  const auth = getAuth(getFirebaseApp());
+  if (auth.currentUser) return auth.currentUser;
+
+  anonymousSignInPromise ??= signInAnonymously(auth)
+    .then(({ user }) => user)
+    .finally(() => {
+      anonymousSignInPromise = undefined;
+    });
+
+  return anonymousSignInPromise;
 }
 
 function getReactionErrorMessage(action, error) {
   const code = typeof error?.code === 'string' ? error.code : 'unknown';
+  if (code === 'auth/operation-not-allowed' || code === 'auth/admin-restricted-operation') {
+    return 'Anonymous sign-in is disabled. Enable Anonymous in Firebase Authentication sign-in providers.';
+  }
   if (code === 'permission-denied') {
-    return `Firebase ${action} was denied. Check Firestore rules allow access to music/kepler-186f.`;
+    return `Firebase ${action} was denied. Check the rules for music/kepler-186f/votes/{userId}.`;
   }
   if (code === 'failed-precondition') {
     return `Firebase ${action} failed. Check that Cloud Firestore is enabled for this project.`;
@@ -47,11 +69,23 @@ const formatTime = (seconds) => {
 function HomePage() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const searchDialogRef = useRef(null);
   const audioRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(0.8);
+
+  useEffect(() => {
+    const dialog = searchDialogRef.current;
+    if (!dialog) return;
+
+    if (searchOpen && !dialog.open) {
+      dialog.showModal();
+    } else if (!searchOpen && dialog.open) {
+      dialog.close();
+    }
+  }, [searchOpen]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -122,7 +156,7 @@ function HomePage() {
         </Link>
         <nav aria-label="Main navigation">
           <Link to="/" className="nav-home">MUSIC<span className="nav-dot" /></Link>
-          <button className="search-trigger" aria-haspopup="dialog" aria-label="Search music" onClick={() => setSearchOpen(true)}>
+          <button className="search-trigger" aria-haspopup="dialog" aria-expanded={searchOpen} aria-label="Search music" onClick={() => setSearchOpen(true)}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
               <circle cx="10.5" cy="10.5" r="6.5" />
               <path d="m16 16 5 5" />
@@ -163,14 +197,21 @@ function HomePage() {
         </section>
       </main>
 
-      {searchOpen && (
-        <dialog open aria-labelledby="search-title" className="search-dialog">
+      <dialog
+        ref={searchDialogRef}
+        aria-labelledby="search-title"
+        className="search-dialog"
+        onCancel={(event) => {
+          event.preventDefault();
+          setSearchOpen(false);
+        }}
+      >
           <div className="search-top">
             <h2 id="search-title">FIND YOUR SOUND.</h2>
             <button type="button" id="close-search" aria-label="Close search" onClick={() => setSearchOpen(false)}>✕</button>
           </div>
           <label htmlFor="search-input">SEARCH MUSIC</label>
-          <input id="search-input" type="search" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search a title or artist…" autoComplete="off" />
+          <input id="search-input" type="search" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search a title or artist…" autoComplete="off" autoFocus />
           <div id="search-results" aria-live="polite">
             {results.length ? (
               results.map((item) => (
@@ -184,8 +225,7 @@ function HomePage() {
             )}
           </div>
           <p className="search-foot">Afterlife Theory Labs / SOUND ARCHIVE</p>
-        </dialog>
-      )}
+      </dialog>
 
       <div className="player" aria-label="Music player">
         <Link to="/music/kepler-186f/" className="player-title">Journey to Kepler 186F<small>Afterlife Theory Labs</small></Link>
@@ -255,14 +295,16 @@ function SongPage() {
 
     const loadReaction = async () => {
       try {
+        const user = await getFirebaseUser();
+        if (!active) return;
         const db = getFirebaseDb();
-        const ref = doc(db, 'music', 'kepler-186f');
+        const ref = doc(db, 'music', 'kepler-186f', 'votes', user.uid);
         const snapshot = await getDoc(ref);
         if (!active) return;
         const data = snapshot.exists() ? snapshot.data() : {};
         setReactionState({
-          like: data.userVote === 'like',
-          dislike: data.userVote === 'dislike',
+          like: data.vote === 'like',
+          dislike: data.vote === 'dislike',
         });
         setDbReady(true);
         setReactionStatus('Your rating is ready.');
@@ -314,23 +356,22 @@ function SongPage() {
     if (!dbReady || reactionBusy) return;
     setReactionBusy(true);
     try {
+      const user = await getFirebaseUser();
       const db = getFirebaseDb();
-      const ref = doc(db, 'music', 'kepler-186f');
+      const ref = doc(db, 'music', 'kepler-186f', 'votes', user.uid);
       const nextVote = await runTransaction(db, async (transaction) => {
         const snapshot = await transaction.get(ref);
-        const current = snapshot.exists() ? snapshot.data() : {};
-        const previousVote = current.userVote === 'like' || current.userVote === 'dislike'
-          ? current.userVote
+        const currentVote = snapshot.data()?.vote;
+        const previousVote = currentVote === 'like' || currentVote === 'dislike'
+          ? currentVote
           : 'none';
         const updatedVote = previousVote === type ? 'none' : type;
-        const likes = Number(current.likes) || 0;
-        const dislikes = Number(current.dislikes) || 0;
 
-        transaction.set(ref, {
-          likes: Math.max(0, likes + Number(updatedVote === 'like') - Number(previousVote === 'like')),
-          dislikes: Math.max(0, dislikes + Number(updatedVote === 'dislike') - Number(previousVote === 'dislike')),
-          userVote: updatedVote,
-        }, { merge: true });
+        if (updatedVote === 'none') {
+          transaction.delete(ref);
+        } else {
+          transaction.set(ref, { vote: updatedVote });
+        }
 
         return updatedVote;
       });
