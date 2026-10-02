@@ -28,6 +28,7 @@ function spaFallback() {
 }
 
 export default defineConfig({
+  envPrefix: ['VITE_', 'NEXT_PUBLIC_'],
   plugins: [react(), spaFallback()],
   server: {
     host: '0.0.0.0',

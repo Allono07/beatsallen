@@ -1,17 +1,40 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Route, Routes, useLocation } from 'react-router-dom';
-import { initializeApp } from 'firebase/app';
-import { doc, getDoc, getFirestore, setDoc } from 'firebase/firestore';
+import { getApp, getApps, initializeApp } from 'firebase/app';
+import { doc, getDoc, getFirestore, runTransaction } from 'firebase/firestore';
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || '',
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || '',
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || '',
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || '',
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || '',
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || '',
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || import.meta.env.NEXT_PUBLIC_FIREBASE_API_KEY || '',
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || import.meta.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || '',
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || import.meta.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || '',
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || import.meta.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || '',
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || import.meta.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '',
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || import.meta.env.NEXT_PUBLIC_FIREBASE_APP_ID || '',
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || import.meta.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || '',
 };
+
+const releases = [{
+  title: 'Journey to Kepler 186F',
+  artist: 'Afterlife Theory Labs · Experiment 001',
+  path: '/music/kepler-186f/',
+  keywords: 'music house journey kepler kepler186f kepler18f kepler 18f afterlife theory labs space planet travel astronaut release experiment 001',
+}];
+
+function getFirebaseDb() {
+  const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+  return getFirestore(app);
+}
+
+function getReactionErrorMessage(action, error) {
+  const code = typeof error?.code === 'string' ? error.code : 'unknown';
+  if (code === 'permission-denied') {
+    return `Firebase ${action} was denied. Check Firestore rules allow access to music/kepler-186f.`;
+  }
+  if (code === 'failed-precondition') {
+    return `Firebase ${action} failed. Check that Cloud Firestore is enabled for this project.`;
+  }
+  return `Firebase ${action} failed (${code}). Check the browser console for details.`;
+}
 
 const formatTime = (seconds) => {
   if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
@@ -83,9 +106,11 @@ function HomePage() {
   const results = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     if (!query) return [];
-    const haystack = 'journey to kepler 186f afterlife theory labs space journey planet travel';
-    const matches = query.split(/\s+/).every((word) => haystack.includes(word));
-    return matches ? [{ title: 'Journey to Kepler 186F', artist: 'Afterlife Theory Labs · Experiment 001' }] : [];
+    const words = query.split(/\s+/);
+    return releases.filter((release) => {
+      const haystack = `${release.title} ${release.artist} ${release.keywords}`.toLowerCase();
+      return words.every((word) => haystack.includes(word));
+    });
   }, [searchQuery]);
 
   return (
@@ -120,7 +145,7 @@ function HomePage() {
           </div>
 
           <section className="release" aria-labelledby="release-heading">
-            <div className="section-label"><h2 id="release-heading">THE FIRST RELEASE</h2><span>001 — A NEW DEPARTURE</span></div>
+            <div className="section-label"><h2 id="release-heading">THE FIRST RELEASE</h2><span>001 — Journey to Kepler 186F</span></div>
             <div className="featured-release">
               <Link to="/music/kepler-186f/" className="release-art" aria-label="Explore Journey to Kepler 186F">
                 <img src="/assets/kepler186f.png" alt="An astronaut gazing across the landscape of an imagined planet" width="840" height="472" />
@@ -149,7 +174,7 @@ function HomePage() {
           <div id="search-results" aria-live="polite">
             {results.length ? (
               results.map((item) => (
-                <Link key={item.title} to="/music/kepler-186f/" className="release-row" onClick={() => setSearchOpen(false)}>
+                <Link key={item.title} to={item.path} className="release-row" onClick={() => setSearchOpen(false)}>
                   <img src="/assets/kepler186f.png" alt="" width="74" height="58" />
                   <span className="release-name">{item.title}<small>{item.artist}</small></span>
                 </Link>
@@ -189,6 +214,8 @@ function SongPage() {
   const [volume, setVolume] = useState(0.8);
   const [reactionState, setReactionState] = useState({ like: false, dislike: false });
   const [dbReady, setDbReady] = useState(false);
+  const [reactionBusy, setReactionBusy] = useState(false);
+  const [reactionStatus, setReactionStatus] = useState('Connecting to Firebase…');
   const [audioStatus, setAudioStatus] = useState('The journey begins here. Music is ready to play.');
 
   useEffect(() => {
@@ -216,26 +243,41 @@ function SongPage() {
   }, [volume]);
 
   useEffect(() => {
-    const hasFirebaseConfig = !!firebaseConfig?.apiKey && !!firebaseConfig?.projectId;
+    let active = true;
+    const hasFirebaseConfig = Boolean(firebaseConfig.apiKey && firebaseConfig.projectId);
     if (!hasFirebaseConfig) {
       setDbReady(false);
-      return;
+      setReactionStatus('Firebase is not configured. Check the VITE_FIREBASE_* or NEXT_PUBLIC_FIREBASE_* variables in .env.');
+      return () => {
+        active = false;
+      };
     }
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    setDbReady(true);
-
-    const ref = doc(db, 'music', 'kepler-186f');
-    getDoc(ref)
-      .then((snapshot) => {
+    const loadReaction = async () => {
+      try {
+        const db = getFirebaseDb();
+        const ref = doc(db, 'music', 'kepler-186f');
+        const snapshot = await getDoc(ref);
+        if (!active) return;
         const data = snapshot.exists() ? snapshot.data() : {};
         setReactionState({
           like: data.userVote === 'like',
           dislike: data.userVote === 'dislike',
         });
-      })
-      .catch(() => setDbReady(false));
+        setDbReady(true);
+        setReactionStatus('Your rating is ready.');
+      } catch (error) {
+        console.error('Could not load track reactions from Firestore.', error);
+        if (!active) return;
+        setDbReady(false);
+        setReactionStatus(getReactionErrorMessage('read', error));
+      }
+    };
+
+    loadReaction();
+    return () => {
+      active = false;
+    };
   }, []);
 
   const togglePlayback = async () => {
@@ -269,27 +311,38 @@ function SongPage() {
   };
 
   const handleReaction = async (type) => {
-    if (!dbReady || !firebaseConfig?.projectId) return;
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const ref = doc(db, 'music', 'kepler-186f');
-    const snapshot = await getDoc(ref);
-    const current = snapshot.exists() ? snapshot.data() : {};
-    const likes = Number(current.likes || 0);
-    const dislikes = Number(current.dislikes || 0);
+    if (!dbReady || reactionBusy) return;
+    setReactionBusy(true);
+    try {
+      const db = getFirebaseDb();
+      const ref = doc(db, 'music', 'kepler-186f');
+      const nextVote = await runTransaction(db, async (transaction) => {
+        const snapshot = await transaction.get(ref);
+        const current = snapshot.exists() ? snapshot.data() : {};
+        const previousVote = current.userVote === 'like' || current.userVote === 'dislike'
+          ? current.userVote
+          : 'none';
+        const updatedVote = previousVote === type ? 'none' : type;
+        const likes = Number(current.likes) || 0;
+        const dislikes = Number(current.dislikes) || 0;
 
-    const nextState = type === 'like'
-      ? { like: !reactionState.like, dislike: false }
-      : { like: false, dislike: !reactionState.dislike };
+        transaction.set(ref, {
+          likes: Math.max(0, likes + Number(updatedVote === 'like') - Number(previousVote === 'like')),
+          dislikes: Math.max(0, dislikes + Number(updatedVote === 'dislike') - Number(previousVote === 'dislike')),
+          userVote: updatedVote,
+        }, { merge: true });
 
-    const nextData = {
-      likes: nextState.like ? likes + (reactionState.like ? 0 : 1) - (reactionState.dislike ? 0 : 0) : reactionState.like ? Math.max(0, likes - 1) : likes,
-      dislikes: nextState.dislike ? dislikes + (reactionState.dislike ? 0 : 1) : reactionState.dislike ? Math.max(0, dislikes - 1) : dislikes,
-      userVote: nextState.like ? 'like' : nextState.dislike ? 'dislike' : 'none',
-    };
+        return updatedVote;
+      });
 
-    await setDoc(ref, nextData, { merge: true });
-    setReactionState(nextState);
+      setReactionState({ like: nextVote === 'like', dislike: nextVote === 'dislike' });
+      setReactionStatus('Your rating was saved.');
+    } catch (error) {
+      console.error('Could not save track reaction to Firestore.', error);
+      setReactionStatus(getReactionErrorMessage('write', error));
+    } finally {
+      setReactionBusy(false);
+    }
   };
 
   return (
@@ -312,14 +365,14 @@ function SongPage() {
           <div className="song-grid">
             <div className="cover">
               <img src="/assets/kepler186f.png" alt="An astronaut overlooking an imagined planetary landscape" width="800" height="800" />
-              <span className="cover-caption">Allen Thomson<strong>JOURNEY TO<br />KEPLER 186F</strong><span>001 / ORIGINAL MUSIC</span></span>
+              <span className="cover-caption">Allen Thomson<strong>JOURNEY TO<br />KEPLER 186F</strong><span>001 / HOUSE MUSIC</span></span>
             </div>
 
             <div className="song-info">
               <span className="eyebrow release-status">HOUSE MUSIC / RELEASE 001</span>
               <h1>JOURNEY TO<br />KEPLER <span>186F</span></h1>
               <p className="artist">ALLEN THOMSON</p>
-              <p className="song-description">A journey beyond the familiar.<br />The first musical departure from Afterlife Theory Labs.</p>
+              <p className="song-description">The first musical departure from Afterlife Theory Labs.</p>
 
               <div className="music-controller" aria-label="Music controls">
                 <button className="controller-toggle" type="button" aria-label={isPlaying ? 'Pause track' : 'Play track'} onClick={togglePlayback}>{isPlaying ? '❚❚' : '▷'}</button>
@@ -359,7 +412,7 @@ function SongPage() {
                   type="button"
                   aria-label="Like this track"
                   aria-pressed={reactionState.like}
-                  disabled={!dbReady}
+                  disabled={!dbReady || reactionBusy}
                   onClick={() => handleReaction('like')}
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
@@ -372,7 +425,7 @@ function SongPage() {
                   type="button"
                   aria-label="Dislike this track"
                   aria-pressed={reactionState.dislike}
-                  disabled={!dbReady}
+                  disabled={!dbReady || reactionBusy}
                   onClick={() => handleReaction('dislike')}
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
@@ -381,7 +434,7 @@ function SongPage() {
                   Dislike
                 </button>
               </div>
-              <p className="reaction-note" role="status">{dbReady ? 'Reactions are live.' : 'Reactions will open with the release.'}</p>
+              <p className="reaction-note" role="status" aria-live="polite">{reactionStatus}</p>
             </div>
           </div>
 
