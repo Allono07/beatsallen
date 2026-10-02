@@ -451,28 +451,28 @@ function SongPage() {
                 <button
                   className="reaction"
                   type="button"
-                  aria-label="Like this track"
+                  aria-label={reactionState.like ? 'Unlike this track' : 'Like this track'}
                   aria-pressed={reactionState.like}
                   disabled={!dbReady || reactionBusy}
                   onClick={() => handleReaction('like')}
                 >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+                  <svg className="reaction-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="M7 10v11H3V10h4Zm0 0 5-8c3 0 3 3 2 7h5a2 2 0 0 1 2 2l-2 8a2 2 0 0 1-2 2H7" />
                   </svg>
-                  Like
+                  {reactionState.like ? 'Unlike' : 'Like'}
                 </button>
                 <button
                   className="reaction"
                   type="button"
-                  aria-label="Dislike this track"
+                  aria-label={reactionState.dislike ? 'Undo dislike for this track' : 'Dislike this track'}
                   aria-pressed={reactionState.dislike}
                   disabled={!dbReady || reactionBusy}
                   onClick={() => handleReaction('dislike')}
                 >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+                  <svg className="reaction-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="M7 14V3H3v11h4Zm0 0 5 8c3 0 3-3 2-7h5a2 2 0 0 0 2-2l-2-8a2 2 0 0 0-2-2H7" />
                   </svg>
-                  Dislike
+                  {reactionState.dislike ? 'Undo' : 'Dislike'}
                 </button>
               </div>
               <p className="reaction-note" role="status" aria-live="polite">{reactionStatus}</p>

@@ -460,6 +460,12 @@ kbd {
   font-size: 11px;
 }
 
+.reaction-icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+}
+
 .reaction[aria-pressed='true'] {
   color: #e9d5ff;
   background: rgba(88, 50, 119, 0.44);
