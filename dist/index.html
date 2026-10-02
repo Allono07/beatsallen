@@ -1,47 +1,16 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Afterlife Theory Labs — ALLEN THOMSON</title>
-  <meta name="description" content="Beats by ALLEN. Discover Journey to Kepler 186F, the first release from Afterlife Theory Labs.">
-  <meta name="theme-color" content="#0c0911">
-  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/style.css">
-  <script type="module" src="/config.js"></script>
-  <script type="module" src="/app.js"></script>
-</head>
-<body>
-  <a class="skip" href="#main">Skip to music</a>
-  <header class="header">
-    <a href="/" data-route class="brand" aria-label="Afterlife Theory Labs home"><span class="brand-mark" aria-hidden="true">a</span><span>Afterlife Theory Labs</span></a>
-    <nav aria-label="Main navigation"><a href="/" data-route class="nav-home">MUSIC<span class="nav-dot"></span></a><button class="search-trigger" aria-haspopup="dialog" aria-label="Search music"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg><span>Search</span><kbd>/</kbd></button></nav>
-    <span class="header-note">BEATS BY ALLEN</span>
-  </header>
-  <main id="main" tabindex="-1">
-    <section class="home view" id="home-view">
-      <div class="hero">
-        <div class="hero-top"><span>EXPLORATIONS / VOL. 001</span><span>EST. ON EARTH</span></div>
-        <div class="hero-bottom"><p>Beyond Silicon<br><span>& Binary</span></p><p class="hero-note"></div>
-      </div>
-      <section class="release" aria-labelledby="release-heading">
-        <div class="section-label"><h2 id="release-heading">THE FIRST RELEASE</h2><span>001 — A NEW DEPARTURE</span></div>
-        <div class="featured-release">
-          <a href="/music/kepler-186f/" data-route class="release-art" aria-label="Explore Journey to Kepler 186F"><img src="/assets/kepler.webp" alt="An astronaut gazing across the landscape of an imagined planet" width="840" height="472"><span class="art-stamp">ALT / 001</span><span class="art-coordinate">KEPLER 186F<br>AN IMAGINED JOURNEY</span></a>
-          <div class="release-copy"><div class="release-meta"><span class="release-status">Allen Thomson</span><span>HOUSE MUSIC</span></div><h3>JOURNEY TO<br>KEPLER <span>186F</span></h3><p>One departure. Everything beyond.</p><a href="/music/kepler-186f/" data-route class="release-link">Explore the release</a></div>
-        </div>
-      </section>
-    </section>
-    <section class="song view" id="song-view" hidden>
-      <a href="/" data-route class="back-link">All music</a>
-      <div class="song-grid"><div class="cover"><img src="/assets/kepler.webp" alt="An astronaut overlooking an imagined planetary landscape" width="800" height="800"><span class="cover-caption">Allen Thomson<strong>JOURNEY TO<br>KEPLER 186F</strong><span>001 / ORIGINAL MUSIC</span></span></div>
-      <div class="song-info"><span class="eyebrow release-status">HOUSE MUSIC / RELEASE 001</span><h1>JOURNEY TO<br>KEPLER <span>186F</span></h1><p class="artist">ALLEN THOMSON</p><p class="song-description"><br>The first musical departure from Afterlife Theory Labs.</p><div class="music-controller" aria-label="Music controls"><button class="controller-toggle" id="controller-toggle" type="button" aria-label="Play track">▷</button><span class="controller-time" id="controller-current">0:00</span><input id="controller-seek" class="controller-seek" type="range" min="0" max="100" value="0" step="1" aria-label="Seek within track"><span class="controller-time" id="controller-duration">0:00</span><label class="sr-only" for="controller-volume">Volume</label><input id="controller-volume" class="controller-volume" type="range" min="0" max="1" step="0.01" value="0.8" aria-label="Volume"></div><p class="audio-note" id="audio-note" role="status"></p><div class="song-actions" aria-label="Rate this track"><button class="reaction" id="like" aria-label="Like this track" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M7 10v11H3V10h4Zm0 0 5-8c3 0 3 3 2 7h5a2 2 0 0 1 2 2l-2 8a2 2 0 0 1-2 2H7"/></svg>Like</button><button class="reaction" id="dislike" aria-label="Dislike this track" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M7 14V3H3v11h4Zm0 0 5 8c3 0 3-3 2-7h5a2 2 0 0 0 2-2l-2-8a2 2 0 0 0-2-2H7"/></svg>Dislike</button></div><p class="reaction-note" id="reaction-note" role="status"></p></div></div>
-      <div class="song-details"><div><span>RELEASE</span><p>001</p></div><div><span>PRODUCTION</span><p>Afterlife Theory Labs</p></div><div><span>DESTINATION</span><p>Kepler 186F</p></div><div><span>STATUS</span><p id="detail-status">RELEASED</p></div></div>
-    </section>
-    <section class="not-found view" id="not-found-view" hidden><span class="eyebrow">SIGNAL LOST</span><h1>UNCHARTED SPACE.</h1><a href="/" data-route>Return to the music</a></section>
-  </main>
-  <footer><a href="/" data-route>Afterlife Theory Labs</a><span>Made on Earth.</span><span>© <span id="year"></span></span></footer>
-  <dialog id="search-dialog" aria-labelledby="search-title"><div class="search-top"><h2 id="search-title">FIND YOUR SOUND.</h2><button id="close-search" aria-label="Close search">✕</button></div><label for="search-input">SEARCH MUSIC</label><input id="search-input" type="search" placeholder="Search a title or artist…" autocomplete="off"><div id="search-results" aria-live="polite"></div><p class="search-foot">Afterlife Theory Labs / SOUND ARCHIVE</p></dialog>
-  <div id="player" class="player" hidden><a href="/music/kepler-186f/" data-route class="player-title">Journey to Kepler 186F<small>Afterlife Theory Labs</small></a><button id="player-toggle" aria-label="Play track">▷</button><span class="time" id="current-time">0:00</span><input id="seek" class="seek" type="range" min="0" max="100" value="0" step="0.1" aria-label="Seek within track" disabled><span class="time" id="duration">0:00</span><label class="volume-label" for="volume">Volume</label><input id="volume" class="volume" type="range" min="0" max="1" step="0.01" value="0.8" aria-label="Volume"><span id="player-status" class="sr-only" role="status"></span></div>
-  <audio id="audio" preload="metadata" src="/music/kepler-18f/kepler186f.mpeg"></audio><p class="sr-only" id="announcement" role="status"></p>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0c0911" />
+    <meta name="description" content="Independent music from Afterlife Theory Labs." />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <title>Afterlife Theory Labs</title>
+    <script type="module" crossorigin src="/assets/index-DmlPtbpq.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-B55BxDhR.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
 </html>
