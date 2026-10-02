@@ -1,6 +1,5 @@
 {
   "rewrites": [
-    { "source": "/music/:path*", "destination": "/index.html" },
-    { "source": "/", "destination": "/index.html" }
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
