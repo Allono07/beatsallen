@@ -451,10 +451,12 @@ kbd {
 }
 
 .reaction {
+  min-width: 72px;
   border: 1px solid rgba(184, 148, 239, 0.25);
   border-radius: 25px;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 9px;
   padding: 11px 18px;
   font-size: 11px;
@@ -466,17 +468,14 @@ kbd {
   flex: 0 0 18px;
 }
 
+.reaction-count {
+  font-variant-numeric: tabular-nums;
+}
+
 .reaction[aria-pressed='true'] {
   color: #e9d5ff;
   background: rgba(88, 50, 119, 0.44);
   border-color: var(--accent);
-}
-
-.reaction-note {
-  font-size: 10px;
-  color: var(--muted);
-  line-height: 1.8;
-  min-height: 18px;
 }
 
 .song-details {

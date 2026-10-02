@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Route, Routes, useLocation } from 'react-router-dom';
 import { getApp, getApps, initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously } from 'firebase/auth';
-import { doc, getDoc, getFirestore, runTransaction } from 'firebase/firestore';
+import { doc, getFirestore, onSnapshot, runTransaction } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || import.meta.env.NEXT_PUBLIC_FIREBASE_API_KEY || '',
@@ -42,20 +42,6 @@ async function getFirebaseUser() {
     });
 
   return anonymousSignInPromise;
-}
-
-function getReactionErrorMessage(action, error) {
-  const code = typeof error?.code === 'string' ? error.code : 'unknown';
-  if (code === 'auth/operation-not-allowed' || code === 'auth/admin-restricted-operation') {
-    return 'Anonymous sign-in is disabled. Enable Anonymous in Firebase Authentication sign-in providers.';
-  }
-  if (code === 'permission-denied') {
-    return `Firebase ${action} was denied. Check the rules for music/kepler-186f/votes/{userId}.`;
-  }
-  if (code === 'failed-precondition') {
-    return `Firebase ${action} failed. Check that Cloud Firestore is enabled for this project.`;
-  }
-  return `Firebase ${action} failed (${code}). Check the browser console for details.`;
 }
 
 const formatTime = (seconds) => {
@@ -253,9 +239,9 @@ function SongPage() {
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(0.8);
   const [reactionState, setReactionState] = useState({ like: false, dislike: false });
+  const [reactionCounts, setReactionCounts] = useState({ likes: 0, dislikes: 0 });
   const [dbReady, setDbReady] = useState(false);
   const [reactionBusy, setReactionBusy] = useState(false);
-  const [reactionStatus, setReactionStatus] = useState('Connecting to Firebase…');
   const [audioStatus, setAudioStatus] = useState('The journey begins here. Music is ready to play.');
 
   useEffect(() => {
@@ -287,38 +273,67 @@ function SongPage() {
     const hasFirebaseConfig = Boolean(firebaseConfig.apiKey && firebaseConfig.projectId);
     if (!hasFirebaseConfig) {
       setDbReady(false);
-      setReactionStatus('Firebase is not configured. Check the VITE_FIREBASE_* or NEXT_PUBLIC_FIREBASE_* variables in .env.');
+      console.error('Firebase reactions are unavailable: check the VITE_FIREBASE_* or NEXT_PUBLIC_FIREBASE_* variables in .env.');
       return () => {
         active = false;
       };
     }
 
-    const loadReaction = async () => {
+    const connectReactions = async () => {
       try {
         const user = await getFirebaseUser();
         if (!active) return;
         const db = getFirebaseDb();
-        const ref = doc(db, 'music', 'kepler-186f', 'votes', user.uid);
-        const snapshot = await getDoc(ref);
-        if (!active) return;
-        const data = snapshot.exists() ? snapshot.data() : {};
-        setReactionState({
-          like: data.vote === 'like',
-          dislike: data.vote === 'dislike',
-        });
-        setDbReady(true);
-        setReactionStatus('Your rating is ready.');
+        const trackRef = doc(db, 'music', 'kepler-186f');
+        const voteRef = doc(trackRef, 'votes', user.uid);
+
+        const unsubscribeVote = onSnapshot(
+          voteRef,
+          (snapshot) => {
+            if (!active) return;
+            const vote = snapshot.data()?.vote;
+            setReactionState({ like: vote === 'like', dislike: vote === 'dislike' });
+            setDbReady(true);
+          },
+          (error) => {
+            console.error('Could not load the current track vote from Firestore.', error);
+            if (active) setDbReady(false);
+          },
+        );
+        const unsubscribeCounts = onSnapshot(
+          trackRef,
+          (snapshot) => {
+            if (!active) return;
+            const data = snapshot.data();
+            setReactionCounts({
+              likes: Number(data?.likes) || 0,
+              dislikes: Number(data?.dislikes) || 0,
+            });
+          },
+          (error) => {
+            console.error('Could not load track reaction counts from Firestore.', error);
+          },
+        );
+
+        return () => {
+          unsubscribeVote();
+          unsubscribeCounts();
+        };
       } catch (error) {
         console.error('Could not load track reactions from Firestore.', error);
         if (!active) return;
         setDbReady(false);
-        setReactionStatus(getReactionErrorMessage('read', error));
       }
     };
 
-    loadReaction();
+    let unsubscribe;
+    connectReactions().then((cleanup) => {
+      unsubscribe = cleanup;
+      if (!active) unsubscribe?.();
+    });
     return () => {
       active = false;
+      unsubscribe?.();
     };
   }, []);
 
@@ -358,29 +373,40 @@ function SongPage() {
     try {
       const user = await getFirebaseUser();
       const db = getFirebaseDb();
-      const ref = doc(db, 'music', 'kepler-186f', 'votes', user.uid);
+      const trackRef = doc(db, 'music', 'kepler-186f');
+      const voteRef = doc(trackRef, 'votes', user.uid);
       const nextVote = await runTransaction(db, async (transaction) => {
-        const snapshot = await transaction.get(ref);
-        const currentVote = snapshot.data()?.vote;
+        const [trackSnapshot, voteSnapshot] = await Promise.all([
+          transaction.get(trackRef),
+          transaction.get(voteRef),
+        ]);
+        const currentVote = voteSnapshot.data()?.vote;
         const previousVote = currentVote === 'like' || currentVote === 'dislike'
           ? currentVote
           : 'none';
         const updatedVote = previousVote === type ? 'none' : type;
+        const currentCounts = trackSnapshot.data() || {};
+        const likes = Number(currentCounts.likes) || 0;
+        const dislikes = Number(currentCounts.dislikes) || 0;
+        const nextCounts = {
+          likes: Math.max(0, likes + Number(updatedVote === 'like') - Number(previousVote === 'like')),
+          dislikes: Math.max(0, dislikes + Number(updatedVote === 'dislike') - Number(previousVote === 'dislike')),
+        };
 
         if (updatedVote === 'none') {
-          transaction.delete(ref);
+          transaction.delete(voteRef);
         } else {
-          transaction.set(ref, { vote: updatedVote });
+          transaction.set(voteRef, { vote: updatedVote });
         }
+        transaction.set(trackRef, nextCounts, { merge: true });
 
-        return updatedVote;
+        return { vote: updatedVote, counts: nextCounts };
       });
 
-      setReactionState({ like: nextVote === 'like', dislike: nextVote === 'dislike' });
-      setReactionStatus('Your rating was saved.');
+      setReactionState({ like: nextVote.vote === 'like', dislike: nextVote.vote === 'dislike' });
+      setReactionCounts(nextVote.counts);
     } catch (error) {
       console.error('Could not save track reaction to Firestore.', error);
-      setReactionStatus(getReactionErrorMessage('write', error));
     } finally {
       setReactionBusy(false);
     }
@@ -459,7 +485,7 @@ function SongPage() {
                   <svg className="reaction-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="M7 10v11H3V10h4Zm0 0 5-8c3 0 3 3 2 7h5a2 2 0 0 1 2 2l-2 8a2 2 0 0 1-2 2H7" />
                   </svg>
-                  {reactionState.like ? 'Unlike' : 'Like'}
+                  <span className="reaction-count">{reactionCounts.likes}</span>
                 </button>
                 <button
                   className="reaction"
@@ -472,10 +498,9 @@ function SongPage() {
                   <svg className="reaction-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="M7 14V3H3v11h4Zm0 0 5 8c3 0 3-3 2-7h5a2 2 0 0 0 2-2l-2-8a2 2 0 0 0-2-2H7" />
                   </svg>
-                  {reactionState.dislike ? 'Undo' : 'Dislike'}
+                  <span className="reaction-count">{reactionCounts.dislikes}</span>
                 </button>
               </div>
-              <p className="reaction-note" role="status" aria-live="polite">{reactionStatus}</p>
             </div>
           </div>
 
