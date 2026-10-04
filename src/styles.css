@@ -70,8 +70,11 @@ img {
   line-height: 1.3;
 }
 
-.brand-mark {
-  display: none;
+.brand-icon {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  border-radius: 7px;
 }
 
 .header nav {
@@ -208,6 +211,12 @@ kbd {
   grid-template-columns: 1.02fr 1fr;
   gap: 6.5%;
   align-items: center;
+}
+
+.featured-release + .featured-release {
+  margin-top: 64px;
+  padding-top: 28px;
+  border-top: 1px solid var(--line);
 }
 
 .release-art {
@@ -420,6 +429,14 @@ kbd {
   justify-content: center;
 }
 
+.track-skip {
+  flex: 0 0 28px;
+  width: 28px;
+  height: 32px;
+  padding: 0;
+  font-size: 18px;
+}
+
 .controller-time {
   font-size: 10px;
   color: var(--muted);
@@ -430,7 +447,7 @@ kbd {
   accent-color: var(--accent);
 }
 
-.controller-toggle + .controller-time + input {
+.music-controller input[aria-label='Seek within track'] {
   flex: 1;
 }
 
@@ -438,16 +455,10 @@ kbd {
   max-width: 90px;
 }
 
-.audio-note {
-  font-size: 10px;
-  color: var(--muted);
-  line-height: 1.8;
-  margin: 14px 0 25px;
-}
-
 .song-actions {
   display: flex;
   gap: 12px;
+  margin-top: 25px;
 }
 
 .reaction {
@@ -639,20 +650,29 @@ kbd {
   font-size: 9px;
 }
 
-.player > button {
+.player-buttons {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.player-buttons button {
   display: grid;
-  flex: 0 0 40px;
   place-items: center;
-  width: 40px;
+  width: 36px;
   height: 40px;
   padding: 0;
-  font-size: 20px;
+  font-size: 18px;
   line-height: 1;
 }
 
 .player input {
   accent-color: var(--accent);
   min-width: 0;
+}
+
+.player-progress {
+  flex: 1;
 }
 
 .time {
@@ -691,35 +711,38 @@ kbd {
 @media (max-width: 640px) {
   .header { height: 72px; margin: 0 5%; gap: 10px; }
   .brand { min-width: 0; font-size: 10px; gap: 8px; letter-spacing: 0.6px; }
+  .brand-icon { width: 26px; height: 26px; flex-basis: 26px; }
   .brand > span:last-child { white-space: nowrap; }
   .header nav { flex-shrink: 0; gap: 16px; font-size: 10px; }
   .search-trigger span, .search-trigger kbd { display: none; }
   .search-trigger { min-width: 40px; min-height: 40px; justify-content: center; padding: 8px; }
   .view { margin: 0 5%; }
-  .hero { padding: 29px 0 33px; }
+  .hero { padding: 18px 0 12px; }
   .hero-top { font-size: 6px; letter-spacing: 1.1px; }
-  .hero-bottom { gap: 20px; flex-wrap: wrap; align-items: flex-end; }
-  .hero-bottom > p:first-child { font-size: 21px; line-height: 1.5; }
-  .hero-note { font-size: 9px; line-height: 1.75; margin: 0; width: calc(100% - 65px); }
+  .hero-bottom { min-height: 0; padding-top: 12px; }
+  .hero-bottom > p:first-child { font-size: 21px; line-height: 1.25; }
+  .hero-note { display: none; }
   .release { padding: 15px 0 44px; }
   .section-label { align-items: flex-start; gap: 12px; padding: 22px 0; }
   .section-label > span { text-align: right; line-height: 1.6; }
   .featured-release { grid-template-columns: 1fr; gap: 26px; }
+  .featured-release + .featured-release { margin-top: 36px; padding-top: 26px; }
   .release-copy h3 { font-size: 40px; margin: 19px 0 13px; letter-spacing: -1.7px; }
   .home { padding-bottom: 72px; }
   .song { padding-top: 25px; padding-bottom: 72px; }
   .song-grid { grid-template-columns: minmax(0, 1fr); gap: 35px; padding-bottom: 32px; }
   .song-grid > * { min-width: 0; }
   .song-info h1 { font-size: clamp(34px, 10.5vw, 49px); letter-spacing: -1.5px; }
-  .music-controller { min-width: 0; gap: 8px; padding: 9px; }
+  .music-controller { min-width: 0; display: grid; grid-template-columns: 28px 40px 28px 30px minmax(0, 1fr) 30px; gap: 8px; padding: 9px; }
   .music-controller input { min-width: 0; }
-  #controller-volume { max-width: 64px; }
+  #controller-volume { grid-column: 1 / -1; max-width: none; width: 100%; }
   .song-details { flex-wrap: wrap; gap: 28px 40px; padding-bottom: 32px; }
   .song-details > div:last-child { margin-left: 0; }
-  .player { padding: 10px 5%; gap: 8px; flex-wrap: wrap; }
-  .player-title { min-width: 0; flex: 1; font-size: 10px; }
-  .player > input[type='range'] { flex: 1 1 100%; order: 1; }
-  .player .time:nth-of-type(1) { margin-left: auto; }
+  .player { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px 10px; padding: 8px 5%; }
+  .player-title { grid-column: 1 / 3; min-width: 0; font-size: 10px; }
+  .player-buttons { grid-column: 3; }
+  .player-buttons button { width: 32px; height: 32px; font-size: 16px; }
+  .player-progress { width: 100%; }
   .player .volume, .player .volume-label { display: none; }
   .search-dialog { max-height: 88dvh; padding: 22px; }
   .search-top h2 { font-size: 23px; }
