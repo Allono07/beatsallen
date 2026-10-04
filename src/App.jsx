@@ -15,11 +15,11 @@ const firebaseConfig = {
 };
 
 const releases = [{
-  id: 'chill',
+  id: 'chillingwithsoman',
   number: '002',
   title: 'Chilling with Soman',
   artist: 'Afterlife Theory Labs · Experiment 002',
-  path: '/music/chill/',
+  path: '/music/chillingwithsoman/',
   artwork: '/music/chill/chill.jpeg',
   audio: '/music/chill/chillingwithsoman.mpeg',
   artAlt: 'Artwork for Chilling with Soman',
